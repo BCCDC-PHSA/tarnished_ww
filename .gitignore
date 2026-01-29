@@ -1,8 +1,10 @@
 # Data
-data/
+data/*
+!data/.gitkeep
 
-# report
-paper/
+# paper
+paper/*
+!paper/.gitkeep
 
 # models objects
 models/
