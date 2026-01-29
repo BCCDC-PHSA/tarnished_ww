@@ -1,0 +1,21 @@
+# Data
+data/
+
+# report
+paper/
+
+# models objects
+models/
+
+#logs
+notebooks/*.nc
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+.pdm.toml
+
+# Environments
+.env
+env/
+
