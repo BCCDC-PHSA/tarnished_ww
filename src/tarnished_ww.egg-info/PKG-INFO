@@ -1,0 +1,71 @@
+Metadata-Version: 2.4
+Name: tarnished-ww
+Version: 0.1.0
+Summary: Bayesian wastewater + ED joint model wrapper.
+Author: Rebeca Cardim Falcao
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: pymc
+Requires-Dist: pytensor
+Requires-Dist: arviz
+Requires-Dist: matplotlib
+
+# TARnSIHED-WW
+
+## Project Organization
+
+```         
+├── LICENSE            <- Open-source license if one is chosen
+├── README.md          <- The top-level README for developers using this project.
+├── data               <- The original, raw data and processed data
+│
+├── models             <- model results, model checkpoints, or model summaries
+│
+├── notebooks          <- Main pipeline of models.
+│
+├── pyproject.toml     <- Project configuration file with package metadata for TARnSIHED_WW and configuration for tools like black
+|
+├── references         <- Data dictionaries, manuals, and all other explanatory materials.
+│
+├── paper            <- Generated manuscript as HTML, PDF, LaTeX, etc.
+│   └── figures        <- Generated graphics and figures to be used in reporting
+│
+├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
+│                         generated with `pip freeze > requirements.txt`
+│
+└── TARnISHED_WW   <- Source code for use in this project.
+    │
+    ├── __init__.py             <- Makes TARnISHED_WW a Python module
+    │
+    ├── config.py               <- Store useful variables and configuration
+    │
+    ├── build_functions.py              <- Code to create bayesian modules for TARnISHED_WW
+    │
+    ├── helper_functions.py             <- Code to create features, metrics and others for models
+    │
+    ├── forecast_functions.py        <- Code to create TARnISHED forecasts
+    │      
+    ├── plots_functions.py                <- Code to create visualizations
+    └── training.py                <- Code to train XGBoost or other ML models
+```
+
+------------------------------------------------------------------------
+
+# Time-series Analysis of Random Walkers for Infections Surveillance and Hospital ED visits using WasteWater
+
+## Description
+
+This repository contains the code and resources for the TARnISHED-WW package. This package is designed to analyze time-series data of infections surveillance, such as reported cases, test positivity rate and wastewater viral load of major respiratory infections -  COVID-19, Influenza A, RSv - and respiratory emergency department (ED) visits using a hierarchical Bayesian framework. There is also some code model trainng using XGBoost models for forecasting performance comparison.
+
+## Project status
+
+In progress: 90% complete, missing documentation and wrapper functions for some modules.
+
+**Project Progress: 90%**
+
+🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜  90%
+
+
+## Quick start
