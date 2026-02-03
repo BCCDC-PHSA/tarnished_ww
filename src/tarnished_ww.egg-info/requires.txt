@@ -1,6 +1,0 @@
-numpy
-pandas
-pymc
-pytensor
-arviz
-matplotlib
