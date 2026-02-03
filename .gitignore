@@ -20,7 +20,7 @@ build/
 dist/
 
 # Jupyter Notebook
-notebooks/*.nc
+notebooks/*.db
 .ipynb_checkpoints/
 notebooks/*.ipynb
 
