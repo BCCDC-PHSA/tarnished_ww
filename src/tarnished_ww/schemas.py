@@ -10,3 +10,9 @@ class ColumnSpec:
     tests: str = "total_tests_all_ages"
     cases_tpl: str = "total_cases_{disease}"
     wwload_tpl: str = "load_trillion_{disease}"
+
+@dataclass(frozen=True)
+class PopulationSpec:
+    region: str = "wwtp"
+    population: str = "population"
+

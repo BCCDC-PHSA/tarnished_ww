@@ -192,7 +192,7 @@ def build_joint_model(diseases, df_train, y_ed, population, num_regions, tests_p
     sd_latent = pm.HalfNormal(f"sd_latent", sigma=0.01)  # small global scale
     for disease in diseases:
         print(f"Adding model for {disease}")
-        y_cases, log_y, pivot= getting_df_data_logged(df_train, disease)
+        y_cases, log_y, pivot = getting_df_data_logged(df_train, disease)
         pivot_dfs[disease] = pivot
         y_cases_all[disease] = y_cases
         log_y_signals_all[disease] = log_y

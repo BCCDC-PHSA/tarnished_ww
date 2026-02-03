@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from .schemas import ColumnSpec
 
 def standardize_input(df, diseases, cols: ColumnSpec):
@@ -40,3 +41,28 @@ def validate_population(pop_df, wwtps):
         )
 
     return pop_df.loc[wwtps, "population"].values
+
+
+def train_test_split_by_forecast_horizon(df, cols: ColumnSpec, horizon_days: int = 21):
+        df["rank_desc"] = df.groupby("wwtp")["surveillance_date"].rank(method="first", ascending=False)
+        df_test = df[df["rank_desc"] <= horizon_days].copy() # last 21 days for testing
+        df_train = df[df["rank_desc"] > horizon_days].copy()
+        df_train.drop(columns="rank_desc", inplace=True)
+        df_test.drop(columns="rank_desc", inplace=True)
+        return df_train, df_test
+
+def get_label(df, cols: ColumnSpec):
+    pivot_df = df.pivot(index='surveillance_date', columns='wwtp', values=['total_ed_visits'])
+    pivot_df['total_ed_visits'] = pivot_df['total_ed_visits'].fillna(0)
+    pivot_df = pivot_df.sort_index()
+    y_ed = pivot_df['total_ed_visits'].values 
+    y_ed = np.asarray(y_ed)
+    return y_ed
+
+def get_tests_per_capita(df, population, cols: ColumnSpec):
+    df = df.copy()
+    total_tests_df = df.pivot(index='surveillance_date', columns='wwtp', values=['total_tests_all_ages'])
+    total_tests_df = total_tests_df.sort_index()
+    total_tests_df = total_tests_df.interpolate(method="linear", axis=0, limit_direction="both")
+    tests_per_capita = np.asarray(total_tests_df['total_tests_all_ages'].values)/population
+    return tests_per_capita
