@@ -2,8 +2,9 @@ import pymc as pm
 import arviz as az
 import numpy as np
 import pytensor.tensor as pt
-from TARnISHED_WW.build_functions import applying_convolution, gamma_kernel
-from TARnISHED_WW.build_functions import getting_df_data, getting_df_data_logged
+from .build_functions import applying_convolution, gamma_kernel
+from .io import getting_cases_and_ww_logged
+from .schemas import ColumnSpec
 
 def sampling_latent_forecast(num_regions, T_train, T_forecast, latent_disease, suffix):
     """
@@ -127,17 +128,17 @@ def build_forecast_model(diseases, trace_ed, df_test, y_ed, population, num_regi
     latent_dict = {}
     latent_disease_dict={}
     pivot_dfs, y_cases_all, log_y_signals_all = {}, {}, {}
-    lag_ww = {'covid': 15, 'rsv': 15, "flua": 15}
-    shape_ww = {'covid': 5.0, "rsv": 4.0, "flua":2.5}#(4-1)*1.2 = 3.6
-    scale_ww = {'covid': 1.0, "rsv": 1.2, "flua":1.5}
+    lag_ww = {'covid': 12, 'rsv': 12, "flua": 10}
+    shape_ww = {'covid': 4.0, "rsv": 4.0, "flua":2.5} #mode:(5.0-1)*1.0=4.0, (4.0-1)*2.3=6.9, (2.5-1)*1.5=2.25
+    scale_ww = {'covid': 1.3, "rsv": 1.2, "flua":1.5}
 
-    lag_reporting = {'covid': 15, 'rsv': 15, 'flua': 15}
-    shape_reporting = {'covid': 6.0, 'rsv':   6.0, 'flua':  4.0}  # tighter than WW
-    scale_reporting = {'covid': 0.80, 'rsv':   0.72, 'flua':  0.75}          # (4-1)*0.75 = 2.25
+    lag_reporting = {'covid': 12, 'rsv': 12, 'flua': 10}
+    shape_reporting = {'covid': 6.0, 'rsv':   6.0, 'flua':  4.0}  #mode:(6.0-1)*0.80=4.0, (5.0-1)*1.725=6.9, (4.0-1)*0.75=2.25
+    scale_reporting = {'covid': 0.80, 'rsv':   0.72, 'flua':  0.75}         
 
-    lag_ed   = {'covid': 15, 'rsv': 15, 'flua': 15}
-    shape_ed = {'covid': 6.0, 'rsv':   6.0,  'flua':  4.0}  # tighter than WW
-    scale_ed = {'covid': 0.80,  'rsv':   0.72, 'flua':  0.75}          # (4-1)*0.75 = 2.25
+    lag_ed   = {'covid': 12, 'rsv': 12, 'flua': 10}
+    shape_ed = {'covid': 6.0, 'rsv':   6.0,  'flua':  4.0}  #mode:(6.0-1)*0.80=4.0, (5.0-1)*1.725=6.9, (4.0-1)*0.75=2.25
+    scale_ed = {'covid': 0.80,  'rsv':   0.72, 'flua':  0.75}       
 
     arrival_rate_free = {d:None for d in diseases}
     arrival_rate = {d:None for d in diseases}
@@ -149,7 +150,7 @@ def build_forecast_model(diseases, trace_ed, df_test, y_ed, population, num_regi
     sd_latent = {d:None for d in diseases}
     for disease in diseases:
         print(f"Adding model for {disease}")
-        y_cases, log_y, pivot= getting_df_data_logged(df_test, disease)
+        y_cases, log_y, pivot= getting_cases_and_ww_logged(df_test, disease)
         pivot_dfs[disease] = pivot
         y_cases_all[disease] = y_cases
         log_y_signals_all[disease] = log_y

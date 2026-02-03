@@ -9,11 +9,20 @@ paper/*
 # models objects
 models/
 
-#logs
-notebooks/*.nc
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Packaging artifacts
+*.egg-info/
+.eggs/
+build/
+dist/
 
 # Jupyter Notebook
-.ipynb_checkpoints
+notebooks/*.nc
+.ipynb_checkpoints/
+notebooks/*.ipynb
 
 .pdm.toml
 

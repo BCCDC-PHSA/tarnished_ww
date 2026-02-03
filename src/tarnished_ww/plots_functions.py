@@ -3,17 +3,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import os
+from .schemas import ColumnSpec
 
-def resampling_weekly(all_train_df,all_test_df):
+def resampling_weekly(all_train_df,all_test_df, cols: ColumnSpec):
        all_train_w = []
        all_test_w = []
-       for region in all_train_df['region'].unique():
+       for region in all_train_df[cols.region_internal].unique():
               # Filter data
-              train_df = all_train_df[all_train_df['region'] == region]
-              test_df = all_test_df[all_test_df['region'] == region]
+              train_df = all_train_df[all_train_df[cols.region_internal] == region]
+              test_df = all_test_df[all_test_df[cols.region_internal] == region]
               # Set 'dates' as the index
-              train_df.set_index('surveillance_date', inplace=True)
-              test_df.set_index('surveillance_date', inplace=True)
+              train_df.set_index(cols.date, inplace=True)
+              test_df.set_index(cols.date, inplace=True)
               # Add an indicator to separate train and test later
               train_df['is_train'] = True
               test_df['is_train'] = False
@@ -28,7 +29,7 @@ def resampling_weekly(all_train_df,all_test_df):
               # Reassign train/test after resampling
               train_resampled = combined_resampled[combined_df['is_train'].resample('W').first().values]
               test_resampled = combined_resampled[~combined_df['is_train'].resample('W').first().values]
-              train_resampled['region'] = test_resampled['region'] = region
+              train_resampled[cols.region_internal] = test_resampled[cols.region_internal] = region
 
               # Append to lists
               all_train_w.append(train_resampled)
@@ -39,27 +40,27 @@ def resampling_weekly(all_train_df,all_test_df):
 
        return final_train_resampled, final_test_resampled
 
-def plot_train_test_predictions(all_train_df, all_test_df, rows, cols, savepath): 
+def plot_train_test_predictions(all_train_df, all_test_df, rows, cols, savepath, colspec: ColumnSpec): 
     # Plot actual vs predicted values
        fig, axs = plt.subplots(rows, cols, figsize=(18, 12), sharex=False, sharey=False)
        axs = axs.flatten()  
        bottom_row_indices = list(range((rows - 1) * cols, rows * cols))
 
-       for i, region in enumerate(all_train_df['region'].unique()):
+       for i, region in enumerate(all_train_df[colspec.region_internal].unique()):
               ax = axs[i]
               # Filter data
-              region_train = all_train_df[all_train_df['region'] == region]
-              region_test = all_test_df[all_test_df['region'] == region]
-              region_all = pd.concat([region_train, region_test]).sort_values("surveillance_date")
+              region_train = all_train_df[all_train_df[colspec.region_internal] == region]
+              region_test = all_test_df[all_test_df[colspec.region_internal] == region]
+              region_all = pd.concat([region_train, region_test]).sort_values(colspec.date)
 
               # Plot train
-              ax.plot(region_all['surveillance_date'], region_all['Actual'], label='Observed (Train)', linestyle='-', color='red', alpha=0.7, linewidth=5)
-              ax.plot(region_all['surveillance_date'], region_all['Pred'], label='Predictions (Train)', linestyle='--', color='blue', alpha=0.7, linewidth=5)
+              ax.plot(region_all[colspec.date], region_all['Actual'], label='Observed (Train)', linestyle='-', color='red', alpha=0.7, linewidth=5)
+              ax.plot(region_all[colspec.date], region_all['Pred'], label='Predictions (Train)', linestyle='--', color='blue', alpha=0.7, linewidth=5)
 
               # Plot test
               if not region_test.empty:
-                    ax.plot(region_test['surveillance_date'], region_test['Actual'], label='Actual (Test)', linestyle='-', color='orange', alpha=0.7, linewidth=5)
-                    ax.plot(region_test['surveillance_date'], region_test['Pred'], label='Predicted (Test)', linestyle='--', color='cyan', alpha=0.7, linewidth=5)
+                    ax.plot(region_test[colspec.date], region_test['Actual'], label='Actual (Test)', linestyle='-', color='orange', alpha=0.7, linewidth=5)
+                    ax.plot(region_test[colspec.date], region_test['Pred'], label='Predicted (Test)', linestyle='--', color='cyan', alpha=0.7, linewidth=5)
 
               # Formatting
               ax.set_title(f"Region: {region}", fontsize=32)

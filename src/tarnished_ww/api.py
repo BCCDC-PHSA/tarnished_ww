@@ -7,23 +7,20 @@ from .io import ( standardize_input,
                  get_label, 
                  get_tests_per_capita,
 )
-from .schemas import ColumnSpec
+from .schemas import ColumnSpec, SamplerSpec, PopulationSpec
 from .build_functions import build_joint_model
 
 def fit_joint_model(df,
                 pop_df,
                 diseases = ["covid","rsv","flua"],
-                random_seed = 123,
-                draws = 2000,
-                tune = 1000,
-                target_accept = 0.9,
-                chains = 4,
-                cols = ColumnSpec()):
+                cols: ColumnSpec = ColumnSpec(),
+                pop_cols: PopulationSpec = PopulationSpec(),
+                sampler: SamplerSpec = SamplerSpec()):
     # Preprocess data
     df = standardize_input(df, diseases, cols)
-    population = validate_population(pop_df, df_train[cols.region_internal].unique())
     df_train, df_test = train_test_split_by_forecast_horizon(df, cols, horizon_days=21) 
-    y_ed = get_label(df_train, cols)
+    y_ed, wwtps = get_label(df_train, cols)
+    population = validate_population(pop_df, wwtps, pop_cols)
     tests_per_capita = get_tests_per_capita(df_train, population, cols)
 
     #fit model
@@ -33,14 +30,21 @@ def fit_joint_model(df,
                         y_ed, 
                         population, 
                         population.shape[0], 
+                        cols,
                         tests_per_capita = tests_per_capita)
-        results = pm.sample(draws = draws,
-                            tune = tune,
-                            target_accept = target_accept,
-                            chains = chains,
-                            random_seed = random_seed,
-                            return_inferencedata=True, 
-                            )
+        sample_kwargs = dict(draws = sampler.draws,
+                         tune = sampler.tune,
+                         target_accept = sampler.target_accept,
+                         chains = sampler.chains,
+                         cores = sampler.cores,
+                         random_seed = sampler.random_seed,
+                         return_inferencedata =True,
+        )
+        
+        if sampler.extra:
+            sample_kwargs.update(sampler.extra)
+
+        results = pm.sample(**sample_kwargs)
     
         return {"model": model,
                 "idata": results,

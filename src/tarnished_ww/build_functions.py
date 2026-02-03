@@ -1,7 +1,8 @@
 import pymc as pm
-import arviz as az
 import numpy as np
 import pytensor.tensor as pt
+from .io import getting_cases_and_ww_logged
+from .schemas import ColumnSpec
 
 def conv1d_pytensor_causal(signal, kernel, lag, mode="same"):
     """
@@ -122,31 +123,6 @@ def ed_likelihood(T, population, num_regions, latent_dict, nu, lag, shape, scale
     ed_rate_per_capita = convolved_sum + pm.math.exp(latent_ed.T) #(alpha_resid[None, :] + 
     return pm.Poisson("ed_visits",  mu = ed_rate_per_capita*population[None,:], observed = observed) #ed_rate_per_capita*population[None,:]
 
-def getting_df_data_logged(df, suffix):
-    # Prepare pivoted data
-    pivot_df = df.pivot(index='surveillance_date', columns='wwtp', 
-                        values=[f'total_cases_{suffix}', f'load_trillion_{suffix}'])
-    pivot_df[f'total_cases_{suffix}'] = pivot_df[f'total_cases_{suffix}'].fillna(0)
-    pivot_df = pivot_df.sort_index()
-    y_cases = pivot_df[f'total_cases_{suffix}'].values
-    y_signal = pivot_df[f'load_trillion_{suffix}'].values  # shape (T, R)
-    y_signal_array = np.array(y_signal, dtype=np.float64)
-    y_signal_array = np.where(np.isnan(y_signal_array), np.nan, y_signal_array + 1)
-    log_y_signal = np.log(y_signal_array)
-    log_y_signal_masked = np.ma.masked_invalid(log_y_signal)
-    return y_cases, log_y_signal_masked, pivot_df
-
-def getting_df_data(df, suffix):
-    # Prepare pivoted data
-    pivot_df = df.pivot(index='surveillance_date', columns='wwtp', 
-                        values=[f'total_cases_{suffix}', f'load_trillion_{suffix}'])
-    pivot_df[f'total_cases_{suffix}'] = pivot_df[f'total_cases_{suffix}'].fillna(0)
-    pivot_df = pivot_df.sort_index()
-    y_cases = pivot_df[f'total_cases_{suffix}'].values
-    y_signal = pivot_df[f'load_trillion_{suffix}'].values  # shape (T, R)
-    y_signal_array = np.array(y_signal, dtype=np.float64)
-    return y_cases, y_signal_array, pivot_df
-
 def adding_disease_model(y_cases, log_y_signal_masked, pop, T, num_regions,
                          alpha, offset, arrival_rate, eta, sd_latent,
                          lag_reporting, shape_reporting, scale_reporting,
@@ -168,7 +144,7 @@ def adding_disease_model(y_cases, log_y_signal_masked, pop, T, num_regions,
 
     return latent_dict
 
-def build_joint_model(diseases, df_train, y_ed, population, num_regions, tests_per_capita = None):
+def build_joint_model(diseases, df_train, y_ed, population, num_regions, cols: ColumnSpec, tests_per_capita = None,):
     latent_dict = {}
     pivot_dfs, y_cases_all, log_y_signals_all = {}, {}, {}
     lag_ww = {'covid': 12, 'rsv': 12, "flua": 10}
@@ -192,7 +168,7 @@ def build_joint_model(diseases, df_train, y_ed, population, num_regions, tests_p
     sd_latent = pm.HalfNormal(f"sd_latent", sigma=0.01)  # small global scale
     for disease in diseases:
         print(f"Adding model for {disease}")
-        y_cases, log_y, pivot = getting_df_data_logged(df_train, disease)
+        y_cases, log_y, pivot = getting_cases_and_ww_logged(df_train, disease, cols)
         pivot_dfs[disease] = pivot
         y_cases_all[disease] = y_cases
         log_y_signals_all[disease] = log_y
