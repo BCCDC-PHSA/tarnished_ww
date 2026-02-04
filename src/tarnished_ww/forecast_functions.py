@@ -129,6 +129,7 @@ def build_forecast_model(diseases,
                          df_test, 
                          population, 
                          num_regions, 
+                         cols: ColumnSpec,
                          tests_per_capita = None,
                          ):
     latent_dict = {}
@@ -156,7 +157,7 @@ def build_forecast_model(diseases,
     sd_latent = {d:None for d in diseases}
     for disease in diseases:
         print(f"Adding model for {disease}")
-        y_cases, log_y, pivot= getting_cases_and_ww_logged(df_test, disease)
+        y_cases, log_y, pivot= getting_cases_and_ww_logged(df_test, disease, cols)
         pivot_dfs[disease] = pivot
         y_cases_all[disease] = y_cases
         log_y_signals_all[disease] = log_y

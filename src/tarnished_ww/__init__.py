@@ -2,12 +2,14 @@
 tarnished_ww: TARnISHED wastewater + ED joint Bayesian model.
 """
 
-from .schemas import ColumnSpec, PopulationSpec
-from .api import fit_joint_model
+from .schemas import ColumnSpec, PopulationSpec, SamplerSpec
+from .api import fit_joint_model, predict_joint_model
 
 __all__ = [
     "fit_joint_model",
+    "predict_joint_model",
     "ColumnSpec",
+    "SamplerSpec",
     "PopulationSpec",
     "__version__",
 ]
