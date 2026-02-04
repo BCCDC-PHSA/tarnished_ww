@@ -124,7 +124,13 @@ def adding_disease_forecast(pop, num_regions, T_train, T_forecast, latent_diseas
 
     return latent_dict
 
-def build_forecast_model(diseases, trace_ed, df_test, y_ed, population, num_regions, tests_per_capita = None, hurdle= False):
+def build_forecast_model(diseases, 
+                         trace_ed, 
+                         df_test, 
+                         population, 
+                         num_regions, 
+                         tests_per_capita = None,
+                         ):
     latent_dict = {}
     latent_disease_dict={}
     pivot_dfs, y_cases_all, log_y_signals_all = {}, {}, {}

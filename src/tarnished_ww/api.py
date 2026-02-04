@@ -8,7 +8,7 @@ from .io import ( standardize_input,
                  get_tests_per_capita,
 )
 from .schemas import ColumnSpec, SamplerSpec, PopulationSpec
-from .build_functions import build_joint_model
+from .build_functions import build_joint_model, build_forecast_model
 
 def fit_joint_model(df,
                 pop_df,
@@ -47,7 +47,39 @@ def fit_joint_model(df,
         results = pm.sample(**sample_kwargs)
     
         return {"model": model,
-                "idata": results,
+                "fit": results,
                 "train_df": df_train,
-                "test_df": df_test
+                "test_df": df_test,
+                "wwtps": wwtps,
+                "population": population,
+                "diseases": diseases,
+                "cols": cols,
+                "sampler": sampler
                 }
+
+def predict_joint_model(fit_results):
+    df_test = fit_results["test_df"]
+    population = fit_results["population"]
+    diseases = fit_results["diseases"]
+    cols = fit_results["cols"]
+    sampler = fit_results["sampler"]
+    tests_per_capita = get_tests_per_capita(df_test, population, cols)
+    with pm.Model() as forecast_model:
+        var_names = build_forecast_model(diseases, 
+                                         fit_results, 
+                                         df_test,
+                                         population, 
+                                         population.shape[0],
+                                         tests_per_capita = tests_per_capita, 
+                                         )
+        predictions = pm.sample_posterior_predictive(fit_results, 
+                                                     model=joint_forecast_model, 
+                                                     predictions=True, 
+                                                     var_names=var_names + ["ed_contribution_residual", 
+                                                                            "ed_contribution_covid",
+                                                                            "ed_contribution_rsv",
+                                                                            "ed_contribution_flua"],
+                                                    random_seed=sampler.random_seed
+                                                    )
+    return {"model": forecast_model,
+            "fit": predictions,}
