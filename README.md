@@ -1,5 +1,17 @@
+<p align="center">
+  <picture>
+    <source 
+      media="(prefers-color-scheme: dark)" 
+      srcset="assets/logo-wordmark-dark.svg">
+    <img 
+      src="assets/logo-wordmark.svg" 
+      alt="tarnished-ww logo" 
+      width="520">
+  </picture>
+</p>
 
-# Tarnished-WW <img src="assets/logo.png" align="right" height="115" alt="" />
+-----------------
+# tarnished-ww
 
 **Time-series Analysis of Random Walkers for Infection Surveillance using Wastewater and Hospital ED Visits**
 
@@ -65,7 +77,7 @@ In progress: 90% complete, missing documentation and wrapper functions for some 
 
 🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜  90%
 
-## Install
+## 💾 Installation
 
 ### From PyPI (still awaiting submission)
 
