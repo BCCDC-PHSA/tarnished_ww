@@ -1,5 +1,5 @@
 
-# Tarnished-WW <img src="assets/logo.svg" align="right" height="115" alt="" />
+# Tarnished-WW <img src="assets/logo.png" align="right" height="115" alt="" />
 
 **Time-series Analysis of Random Walkers for Infection Surveillance using Wastewater and Hospital ED Visits**
 
