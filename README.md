@@ -1,16 +1,24 @@
-<p align="center">
-  <img src="assets/logo.svg" alt="Tarnished-WW logo" width="160">
-</p>
+<table>
+<tr>
+<td width="65%" align="left">
 
-<h1 align="center">TARnISHED-WW</h1>
+# TARNISHED-WW
 
-<p align="center">
-  Time-series Analysis of Random Walkers for Infection Surveillance using Wastewater and Hospital ED Visits
-</p>
+**Time-series Analysis of Random Walkers for Infection Surveillance  
+using Wastewater and Hospital ED Visits**
 
-<p align="center">
-  Joint Bayesian model for cases, wastewater viral load, and ED visits.
-</p>
+Joint Bayesian modeling of reported cases, wastewater viral load,  
+and emergency department visits.
+
+</td>
+
+<td width="35%" align="right">
+
+<img src="assets/logo.svg" alt="TARnISHED-WW logo" width="140">
+
+</td>
+</tr>
+</table>
 
 ## Project Organization
 
