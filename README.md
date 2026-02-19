@@ -21,25 +21,35 @@
 ├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
 │                         generated with `pip freeze > requirements.txt`
 │
-└── TARnISHED_WW   <- Source code for use in this project.
+└── src   <- Source code for use in this project.
     │
-    ├── __init__.py             <- Makes TARnISHED_WW a Python module
-    │
-    ├── config.py               <- Store useful variables and configuration
-    │
-    ├── build_functions.py              <- Code to create bayesian modules for TARnISHED_WW
-    │
-    ├── helper_functions.py             <- Code to create features, metrics and others for models
-    │
-    ├── forecast_functions.py        <- Code to create TARnISHED forecasts
-    │      
-    ├── plots_functions.py                <- Code to create visualizations
-    └── training.py                <- Code to train XGBoost or other ML models
+    └── tarnished_ww
+        ├── __init__.py             <- Makes TARnISHED_WW a Python module
+        │
+        ├── api.py                  <- Wrappers to fit model and predict using posteriors
+        │
+        ├── io.py                   <- Functions to process data
+        │
+        ├── schemas.py              <- Stores columns names specifications for input data
+        │       
+        ├── config.py               <- Store useful variables and configuration
+        │
+        ├── build_functions.py              <- Code to create bayesian modules for TARnISHED_WW
+        │
+        ├── helper_functions.py             <- Code to create features, metrics and others for models
+        │
+        ├── forecast_functions.py        <- Code to create TARnISHED forecasts
+        │      
+        ├── plots_functions.py                <- Code to create visualizations
+        │
+        └── training.py                <- Code to train XGBoost or other ML models
 ```
 
 ------------------------------------------------------------------------
 
-# Time-series Analysis of Random Walkers for Infections Surveillance and Hospital ED visits using WasteWater
+# Time-series Analysis of Random Walkers for Infections Surveillance and Hospital ED visits using WasteWater (TARnISHED-WW)
+
+Bayesian joint modeling of wastewater, reported cases, and ED visits across multiple regions and respiratory viral infections - RSV, Influenza A and Covid-19.` tarnished-ww` is built on **PyMC** and is designed for public health surveillance + forecasting workflows.
 
 ## Description
 
@@ -53,5 +63,107 @@ In progress: 90% complete, missing documentation and wrapper functions for some 
 
 🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜  90%
 
+## Install
+
+### From PyPI (still awaiting submission)
+
+```bash
+pip install tarnished-ww
+```
+
+### From GitHub 
+
+```bash
+pip install git+https://github.com/<your-org-or-user>/tarnished-ww.git
+```
+
+or
+
+```bash
+pip install git+https://github.com/<your-org-or-user>/tarnished-ww.git@main
+# or
+pip install git+https://github.com/<your-org-or-user>/tarnished-ww.git@v0.1.0
+```
 
 ## Quick start
+
+This tutorial simulates synthetic data and runs a smoke test. 
+
+### Simulating synthetic data and fitting tarnished-ww
+
+```python
+import pandas as pd
+from tarnished_ww import fit_joint_model, predict_joint_model
+from tarnished_ww import ColumnSpec, PopulationSpec, SamplerSpec
+from tarnished_ww.simulate import simulate_synthetic
+
+# ----------------------------
+# 1) Simulate example data
+# ----------------------------
+df, pop = simulate_synthetic(n_regions=3, n_days=60, seed=1)
+
+# ----------------------------
+# 2) Define column mappings
+# ----------------------------
+cols = ColumnSpec(region="wwtp_id")
+pop_cols = PopulationSpec(region="wwtp_id")
+
+# ----------------------------
+# 3) Sampler configuration (smoke test)
+# ----------------------------
+sampler = SamplerSpec(
+    draws=100,
+    tune=100,
+    chains=4,
+    cores=4,
+    target_accept=0.9,
+    random_seed=123,
+    extra={
+        "progressbar": True,
+        "compute_convergence_checks": False,  # faster for smoke test
+    }
+)
+
+# ----------------------------
+# 4) Fit model
+# ----------------------------
+res = fit_joint_model(
+    df,
+    pop,
+    diseases=["covid", "rsv", "flua"],
+    cols=cols,
+    pop_cols=pop_cols,
+    sampler=sampler,
+)
+
+print("✅ Model built and sampled.")
+```
+
+### Forecasting
+
+```python
+forecast = predict_joint_model(res)
+print(forecast.head())
+```
+
+
+### Inputs
+
+* df (observations)
+
+A long-form dataframe containing:
+
+1. region identifier - `wwtp_id`
+2. date/time index - `surveillance_date`
+3. disease-specific observed signals
+   1. cases - `total_cases_{disease}`
+   2. wastewater viral load - `load_trillion_{disease}`
+   3. ED visits - `total_ed_visits`
+   4. Total respiratory tests - `total_tests`
+
+* pop (population)
+  
+A dataframe with:
+
+1. region identifier - `wwtp_id`
+2. population size - `population`
