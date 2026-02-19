@@ -30,3 +30,7 @@ notebooks/*.ipynb
 .env
 env/
 
+# docs
+docs/quick_start_files/
+docs/*.html
+

@@ -1,0 +1,95 @@
+---
+title: "Quick Start"
+subtitle: "tarnished-ww: joint Bayesian modeling of cases, wastewater, and ED visits"
+format:
+  html:
+    toc: true
+    code-fold: false
+    code-tools: true
+execute:
+  echo: true
+  eval: true
+  warning: false
+  message: false
+  error: false
+  cache: false
+jupyter: python3
+---
+
+## Overview
+
+This quick start demonstrates how to:
+
+1. Simulate example data
+2. Define column mappings
+3. Fit a joint Bayesian model (smoke test sampler settings)
+4. Generate a forecast
+
+> Note: Sampling can take time depending on your machine. The sampler settings below are intentionally small for a smoke test.
+
+## Quick Start
+
+```{python}
+import pandas as pd
+from tarnished_ww import fit_joint_model, predict_joint_model
+from tarnished_ww import ColumnSpec, PopulationSpec, SamplerSpec
+from tarnished_ww.simulate import simulate_synthetic
+
+df, pop = simulate_synthetic(n_regions=2, n_days=60, seed=1)
+
+df.head()
+```
+
+```{python}
+pop.head()
+```
+
+```{python}
+cols = ColumnSpec(region="wwtp_id")
+pop_cols = PopulationSpec(region="wwtp_id")
+
+cols, pop_cols
+```
+
+## Sampler configuration
+
+```{python}
+sampler = SamplerSpec(
+    draws=100,
+    tune=100,
+    chains=1,     # <- key change
+    cores=1,      # <- key change
+    target_accept=0.9,
+    random_seed=123,
+    extra={
+        "progressbar": False,                 # nicer for rendered docs
+        "compute_convergence_checks": False,  # fine for smoke test
+    }
+)
+
+sampler
+```
+
+## Fit model
+
+```{python}
+res = fit_joint_model(
+    df,
+    pop,
+    diseases=["covid", "rsv", "flua"],
+    cols=cols,
+    pop_cols=pop_cols,
+    sampler=sampler,
+)
+
+print("✅ Model built and sampled.")
+```
+
+### Forecasting
+
+```{python}
+forecast = predict_joint_model(res)
+print(forecast["trace"])
+```
+
+### Plotting
