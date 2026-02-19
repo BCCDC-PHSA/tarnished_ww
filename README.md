@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Tarnished-WW logo" width="160">
+  <img src="assets/logo.svg" alt="Tarnished-WW logo" width="160">
 </p>
 
-<h1 align="center">TARNISHED-WW</h1>
+<h1 align="center">TARnISHED-WW</h1>
 
 <p align="center">
   Time-series Analysis of Random Walkers for Infection Surveillance using Wastewater and Hospital ED Visits
@@ -11,10 +11,6 @@
 <p align="center">
   Joint Bayesian model for cases, wastewater viral load, and ED visits.
 </p>
-
-## TARnISHED-WW
-
-Bayesian joint modeling of wastewater, reported cases, and ED visits across multiple regions and respiratory viral infections - RSV, Influenza A and Covid-19.` tarnished-ww` is built on **PyMC** and is designed for public health surveillance + forecasting workflows.
 
 ## Project Organization
 
@@ -65,7 +61,9 @@ Bayesian joint modeling of wastewater, reported cases, and ED visits across mult
 
 ## Description
 
-This repository contains the code and resources for the TARnISHED-WW package. This package is designed to analyze time-series data of infections surveillance, such as reported cases, test positivity rate and wastewater viral load of major respiratory infections -  COVID-19, Influenza A, RSv - and respiratory emergency department (ED) visits using a hierarchical Bayesian framework.
+Bayesian joint modeling of wastewater, reported cases, and ED visits across multiple regions and respiratory viral infections - RSV, Influenza A and Covid-19.`tarnished-ww` is built on **PyMC** and is designed for public health surveillance + forecasting workflows.
+
+This repository contains the code and resources for `tarnished-ww`. This package is designed to analyze time-series data of infections surveillance, such as reported cases, test positivity rate and wastewater viral load of major respiratory infections -  COVID-19, Influenza A, RSv - and respiratory emergency department (ED) visits using a hierarchical Bayesian framework.
 
 ## Project status
 
