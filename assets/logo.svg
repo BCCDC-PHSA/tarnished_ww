@@ -2,9 +2,9 @@
 <!-- Created with Inkscape (http://www.inkscape.org/) -->
 
 <svg
-   width="1024mm"
-   height="1029mm"
-   viewBox="0 0 1024 1029"
+   width="141.16188mm"
+   height="257.7164mm"
+   viewBox="0 0 141.16188 257.7164"
    version="1.1"
    id="svg5"
    inkscape:version="1.2.2 (732a01da63, 2022-12-09)"
@@ -25,8 +25,8 @@
      inkscape:document-units="mm"
      showgrid="false"
      inkscape:zoom="0.55270426"
-     inkscape:cx="1625.6433"
-     inkscape:cy="951.68436"
+     inkscape:cx="397.13824"
+     inkscape:cy="479.46075"
      inkscape:window-width="1920"
      inkscape:window-height="1009"
      inkscape:window-x="-8"
@@ -38,9 +38,10 @@
   <g
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
-     id="layer1">
+     id="layer1"
+     transform="translate(-325.22923,-36.245345)">
     <path
-       style="fill:none;fill-opacity:1;stroke:#2f2f2f;stroke-width:13.46729167;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+       style="fill:none;fill-opacity:1;stroke:#2f2f2f;stroke-width:13.4673;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
        d="M 392.77775,42.991555 C 387.34114,43.431457 339.70754,164.83709 334.6176,189.87937 308.2745,319.4863 485.80724,321.41457 456.36942,185.22195 451.46989,162.55451 398.21435,42.551653 392.77775,42.991555 Z"
        id="path167"
        sodipodi:nodetypes="zssz" />
