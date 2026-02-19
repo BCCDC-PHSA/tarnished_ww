@@ -1,10 +1,8 @@
 # TARNISHED-WW  <img src="assets/logo.svg" align="right" height="139" alt="" />
 
-**Time-series Analysis of Random Walkers for Infection Surveillance  
-using Wastewater and Hospital ED Visits**
+**Time-series Analysis of Random Walkers for Infection Surveillance using Wastewater and Hospital ED Visits**
 
-Joint Bayesian modeling of reported cases, wastewater viral load,  
-and emergency department visits.
+Joint Baeysian modeling of wastewater, reported cases, and ED visits across multiple regions and respiratory viral infections - RSV, Influenza A and Covid-19.`tarnished-ww` is built on **PyMC** and is designed for public health surveillance + forecasting workflows.
 
 
 ## Project Organization
@@ -55,8 +53,6 @@ and emergency department visits.
 ------------------------------------------------------------------------
 
 ## Description
-
-Bayesian joint modeling of wastewater, reported cases, and ED visits across multiple regions and respiratory viral infections - RSV, Influenza A and Covid-19.`tarnished-ww` is built on **PyMC** and is designed for public health surveillance + forecasting workflows.
 
 This repository contains the code and resources for `tarnished-ww`. This package is designed to analyze time-series data of infections surveillance, such as reported cases, test positivity rate and wastewater viral load of major respiratory infections -  COVID-19, Influenza A, RSv - and respiratory emergency department (ED) visits using a hierarchical Bayesian framework.
 
