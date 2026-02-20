@@ -29,7 +29,7 @@ Joint Baeysian modeling of wastewater, reported cases, and ED visits across mult
 │
 ├── notebooks          <- Main pipeline of models.
 │
-├── pyproject.toml     <- Project configuration file with package metadata for TARnSIHED_WW and configuration for tools like black
+├── pyproject.toml     <- Project configuration file with package metadata for TARnSIHED_WW and configuration
 |
 ├── references         <- Data dictionaries, manuals, and all other explanatory materials.
 │
@@ -39,7 +39,7 @@ Joint Baeysian modeling of wastewater, reported cases, and ED visits across mult
 ├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
 │                         generated with `pip freeze > requirements.txt`
 │
-└── src   <- Source code for use in this project.
+└── src   <- Source code for use in this package
     │
     └── tarnished_ww
         ├── __init__.py             <- Makes TARnISHED_WW a Python module
