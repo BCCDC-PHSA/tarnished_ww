@@ -9,8 +9,9 @@ description = "Bayesian wastewater + ED joint model wrapper."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
-authors = [{name = "Rebeca Cardim Falcao"}]
-dependencies = ["numpy", "pandas", "pymc", "pytensor", "arviz", "matplotlib"]
+authors = [{name = "Rebeca Cardim Falcao", email = "rebeca.falcao@bccdc.ca" }]
+keywords = ["bayesian", "emergency-department", "respiratory-viruses", "wastewater", "model-fitting", "surveillance"]
+dependencies = ["numpy", "pandas", "pymc", "pytensor", "matplotlib"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
