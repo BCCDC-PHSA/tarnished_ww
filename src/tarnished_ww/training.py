@@ -4,6 +4,69 @@ from xgboost import XGBRegressor
 from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import ParameterGrid
 
+def _lagged_feature_columns(label, features, lags_dict):
+    return (
+        [f"{feat}_{lag_name}" for lag_name in lags_dict for feat in features]
+        + [f"{label}_{lag_name}" for lag_name in lags_dict]
+    )
+
+def validate_xgboost_columns(df, region_column, date_column, label, features, lags_dict=None):
+    """
+    Check that the XGBoost dataframe has the columns expected by the notebook.
+
+    If lags_dict is supplied, this checks the existing lagged-column convention
+    without creating or changing any lag features.
+    """
+    required = [region_column, date_column, label]
+    if lags_dict is None:
+        required += list(features)
+    else:
+        required += _lagged_feature_columns(label, features, lags_dict)
+
+    missing = [col for col in required if col not in df.columns]
+    if missing:
+        raise ValueError(
+            "XGBoost input dataframe is missing required columns:\n"
+            + "\n".join(missing)
+        )
+    return True
+
+def interpolate_wastewater_features(
+    df,
+    region_column,
+    date_column="surveillance_date",
+    wastewater_features=None,
+    limit_direction="both",
+):
+    """
+    Interpolate missing wastewater predictor values within each region.
+
+    This should be called before lag creation. It only touches the wastewater
+    feature columns, leaving case counts, ED counts, flags, and lag logic alone.
+    """
+    df_interp = df.copy()
+    df_interp[date_column] = pd.to_datetime(df_interp[date_column])
+
+    if wastewater_features is None:
+        wastewater_features = [
+            col for col in df_interp.columns
+            if col.startswith("load_trillion_") or col.startswith("cp_ml_")
+        ]
+
+    missing_features = [col for col in wastewater_features if col not in df_interp.columns]
+    if missing_features:
+        raise ValueError(
+            "Cannot interpolate missing wastewater columns:\n"
+            + "\n".join(missing_features)
+        )
+
+    df_interp = df_interp.sort_values([region_column, date_column])
+    df_interp[wastewater_features] = (
+        df_interp.groupby(region_column)[wastewater_features]
+        .transform(lambda group: group.interpolate(method="linear", limit_direction=limit_direction))
+    )
+    return df_interp
+
 def rolling_window_xgboost(df, region_column, label, features, window_size, step_size, param_grid, lags_dict):
     """
     Perform rolling window cross-validation with XGBoost for time series forecasting per region.
@@ -73,6 +136,117 @@ def rolling_window_xgboost(df, region_column, label, features, window_size, step
     best_param_set = min(avg_mae_per_param, key=avg_mae_per_param.get)
 
     return best_param_set, region_results
+
+def rolling_forecast_xgboost(
+    df,
+    region_column,
+    label,
+    features,
+    best_params,
+    lags_dict,
+    date_column="surveillance_date",
+    horizon_days=21,
+    step_days=21,
+    min_train_days=180,
+    start_date=None,
+    end_date=None,
+):
+    """
+    Run Bayesian-style expanding-window XGBoost forecast evaluation.
+
+    The dataframe is expected to already contain the lagged columns generated
+    by the existing lag-feature system. This function trains one model per
+    region for each forecast origin and returns tidy prediction rows.
+    """
+    validate_xgboost_columns(
+        df,
+        region_column=region_column,
+        date_column=date_column,
+        label=label,
+        features=features,
+        lags_dict=lags_dict,
+    )
+
+    feature_columns = _lagged_feature_columns(label, features, lags_dict)
+    model_columns = feature_columns + [label]
+    df_eval = df.copy()
+    df_eval[date_column] = pd.to_datetime(df_eval[date_column])
+    df_eval = df_eval.sort_values([region_column, date_column])
+
+    all_dates = pd.Index(sorted(df_eval[date_column].dropna().unique()))
+    first_origin = all_dates.min() + pd.Timedelta(days=min_train_days)
+    last_origin = all_dates.max() - pd.Timedelta(days=horizon_days)
+
+    if start_date is not None:
+        first_origin = max(first_origin, pd.Timestamp(start_date))
+    if end_date is not None:
+        last_origin = min(last_origin, pd.Timestamp(end_date))
+
+    origins = pd.date_range(first_origin, last_origin, freq=f"{step_days}D")
+    prediction_rows = []
+
+    for window_id, origin in enumerate(origins):
+        forecast_start = origin + pd.Timedelta(days=1)
+        forecast_end = origin + pd.Timedelta(days=horizon_days)
+
+        train_data = df_eval[df_eval[date_column] <= origin].copy()
+        test_data = df_eval[
+            (df_eval[date_column] >= forecast_start)
+            & (df_eval[date_column] <= forecast_end)
+        ].copy()
+
+        if train_data.empty or test_data.empty:
+            continue
+
+        for region in sorted(test_data[region_column].dropna().unique()):
+            train_region = train_data[train_data[region_column] == region].dropna(subset=model_columns)
+            test_region = test_data[test_data[region_column] == region].dropna(subset=model_columns)
+
+            if train_region.empty or test_region.empty:
+                continue
+
+            model = XGBRegressor(
+                objective="reg:absoluteerror",
+                random_state=42,
+                **dict(best_params),
+            )
+            model.fit(train_region[feature_columns], train_region[label])
+            predictions = model.predict(test_region[feature_columns])
+
+            for forecast_date, observed, predicted in zip(
+                test_region[date_column],
+                test_region[label],
+                predictions,
+            ):
+                prediction_rows.append(
+                    {
+                        "window_id": window_id,
+                        "forecast_origin": origin,
+                        "forecast_start": forecast_start,
+                        "forecast_end": forecast_end,
+                        "forecast_date": forecast_date,
+                        "horizon": (forecast_date - origin).days,
+                        region_column: region,
+                        "observed": observed,
+                        "predicted": predicted,
+                    }
+                )
+
+    return pd.DataFrame(prediction_rows)
+
+def summarize_xgboost_rolling_metrics(rolling_predictions_df, region_column="region"):
+    """
+    Summarize XGBoost rolling forecast MAE by region and forecast horizon.
+    """
+    df = rolling_predictions_df.copy()
+    if df.empty:
+        return pd.DataFrame(columns=[region_column, "horizon", "mae", "n"])
+
+    df["absolute_error"] = (df["observed"] - df["predicted"]).abs()
+    return (
+        df.groupby([region_column, "horizon"], as_index=False)
+        .agg(mae=("absolute_error", "mean"), n=("absolute_error", "size"))
+    )
 
 def train_and_predict_per_region_xgboost(df, new_data, region_column, label, features, best_params, lags_dict):
     """

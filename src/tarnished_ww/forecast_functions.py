@@ -14,7 +14,7 @@ def sampling_latent_forecast(num_regions, T_train, T_forecast, latent_disease, s
     chol_matrix = pm.Deterministic(f"chol_matrix_{suffix}",pm.expand_packed_triangular(num_regions, chol))
     #latent_disease = pm.Flat(f"latent_{suffix}", shape=(T_train, num_regions))
     epsilon = 1e-10
-    init_dist = pm.MvNormal.dist(mu=latent_disease[-1, :], cov=epsilon * np.eye(num_regions))
+    init_dist = pm.MvNormal.dist(mu=pt.mean(latent_disease[-7:, :], axis=0), cov=epsilon * np.eye(num_regions))
     latent_forecast = pm.MvGaussianRandomWalk(
         f"latent_forecast_{suffix}",
         mu=np.zeros(num_regions),  # mean zero step
@@ -27,7 +27,7 @@ def sampling_latent_forecast(num_regions, T_train, T_forecast, latent_disease, s
 def conv1d_pytensor_causal_with_history(future, kernel, history_tail, lag):
     """
     future:  (Tf, R)  latent for forecast horizon
-    kernel:  (L,)     causal taps, already normalized if that's your convention
+    kernel:  (L,)     causal taps, already normalized
     history_tail: (L-1, R) last L-1 rows from TRAINING latent (time order)
 
     returns: (Tf, R) causal conv over [history_tail ; future], sliced to future
@@ -47,9 +47,26 @@ def conv1d_pytensor_causal_with_history(future, kernel, history_tail, lag):
     return conv_full[-Tf:, :]                            # forecast slice (Tf, R)
 
 
-def forecasting_cases(lag, population, latent, alpha, history_tail, kernel, suffix, tests_per_capita = None, observed = None):
+def forecasting_cases(
+    lag,
+    population,
+    latent,
+    alpha,
+    history_tail,
+    kernel,
+    suffix,
+    tests_per_capita=None,
+    observed=None,
+    case_signal_center=None,
+):
     cases_signal = conv1d_pytensor_causal_with_history(latent, kernel, history_tail, lag)
-    log_mu_c = cases_signal + alpha + pm.math.log(population[None,:])
+    if case_signal_center is not None:
+        cases_signal_for_likelihood = cases_signal - case_signal_center[None, :]
+    else:
+        cases_signal_for_likelihood = cases_signal
+    # Previous non-centered version:
+    # log_mu_c = cases_signal + alpha + pm.math.log(population[None,:])
+    log_mu_c = cases_signal_for_likelihood + alpha + pm.math.log(population[None,:])
 
     if tests_per_capita is not None:
         beta = pm.Flat(f"beta_tests_{suffix}")
@@ -73,16 +90,36 @@ def forecasting_wastewater(lag, latent, arrival_rate, sigma_rw, history_tail, ke
 
     return pm.Normal(f"forecast_observed_wastewater_{suffix}", **kwargs)
 
-def ed_forecast(T_forecast, T_train, population, num_regions, nu, latent_dict,  history_tail, lag, shape, scale, delay_ed, diseases):
+def ed_forecast(
+    T_forecast,
+    T_train,
+    population,
+    num_regions,
+    nu,
+    latent_dict,
+    history_tail,
+    lag,
+    shape,
+    scale,
+    delay_ed,
+    diseases,
+    ed_signal_center=None,
+):
     latent_x = pm.Flat(f"latent_ed", shape=(num_regions, T_train))
     x_last = latent_x[:,-1]
 
-    sigma_rw = 0.04  # or 0.03–0.06
+    sigma_rw = pm.Flat("sigma_ed") # or 0.03-0.06
     latent_forecast_ed = pm.GaussianRandomWalk(
         "latent_forecast_ed", mu=0.0, sigma=sigma_rw,
         init_dist=pm.DiracDelta.dist(x_last, shape = (num_regions,)),
         shape=(num_regions, T_forecast),
     )
+    # Previous static residual forecast:
+    # log_residual_rate = pm.Flat("log_residual_rate", shape=(num_regions,))
+    # residual_rate = pm.Deterministic(
+    #     "ed_contribution_residual",
+    #     pm.math.exp(log_residual_rate)[None, :],
+    # )
 
     ed_kernel = {disease: gamma_kernel(lag[disease], 
                                        shape[disease], 
@@ -91,19 +128,29 @@ def ed_forecast(T_forecast, T_train, population, num_regions, nu, latent_dict,  
     disease_contributions = {}
     for disease in diseases:
         convolved =  conv1d_pytensor_causal_with_history(latent_dict[disease], ed_kernel[disease], history_tail[disease], lag[disease])
-        contribution = pm.math.exp(nu[disease][None,:] + convolved)
+        if ed_signal_center is not None and ed_signal_center.get(disease) is not None:
+            convolved_for_likelihood = convolved - ed_signal_center[disease][None, :]
+        else:
+            convolved_for_likelihood = convolved
+        # Previous non-centered version:
+        # contribution = pm.math.exp(nu[disease][None,:] + convolved)
+        contribution = pm.math.exp(nu[disease][None,:] + convolved_for_likelihood)
         disease_contributions[disease] = pm.Deterministic(f"ed_contribution_{disease}", contribution)
     convolved_list = pt.stack(list(disease_contributions.values()), axis=0)
     convolved_sum = pm.math.sum(convolved_list, axis=0)
 
     ed_rate_per_capita = convolved_sum + pm.math.exp(latent_forecast_ed.T)
     disease_contributions["residual"] = pm.Deterministic("ed_contribution_residual", pm.math.exp(latent_forecast_ed.T))
+    # Previous static residual forecast:
+    # ed_rate_per_capita = convolved_sum + residual_rate
+    # disease_contributions["residual"] = residual_rate
     return pm.Poisson("forecast_ed_visits",  mu = ed_rate_per_capita*population[None,:]) 
 
 def adding_disease_forecast(pop, num_regions, T_train, T_forecast, latent_disease_dict,
                             alpha, offset, arrival_rate,
                             lag_reporting, shape_reporting, scale_reporting,
-                            lag_ww, shape_ww, scale_ww, latent_dict, suffix, tests_per_capita = None):
+                            lag_ww, shape_ww, scale_ww, latent_dict, suffix,
+                            tests_per_capita=None, case_signal_center=None):
     # Parameters
     sigma_rw = pm.Flat(f"sigma_wastewater_{suffix}")
     latent_disease = pm.Flat(f"latent_{suffix}", shape=(T_train, num_regions))
@@ -118,7 +165,17 @@ def adding_disease_forecast(pop, num_regions, T_train, T_forecast, latent_diseas
 
     latent_dict[suffix] = latent_forecast
 
-    forecasting_cases(lag_reporting, pop, latent_forecast, alpha, latent_disease_dict[suffix], kernel_c, suffix=f"{suffix}", tests_per_capita = tests_per_capita)
+    forecasting_cases(
+        lag_reporting,
+        pop,
+        latent_forecast,
+        alpha,
+        latent_disease_dict[suffix],
+        kernel_c,
+        suffix=f"{suffix}",
+        tests_per_capita=tests_per_capita,
+        case_signal_center=case_signal_center,
+    )
     forecasting_wastewater(lag_ww, latent_forecast, arrival_rate, sigma_rw,latent_disease_dict[suffix], kernel_w, suffix=f"{suffix}")
 
 
@@ -152,9 +209,12 @@ def build_forecast_model(diseases,
     alpha = {d:None for d in diseases}
     offset_ed = {d:None for d in diseases}
     nu = {d:None for d in diseases}
+    case_signal_center = {d: None for d in diseases}
+    ed_signal_center = {d: None for d in diseases}
     var_names = []
     T_train = trace_ed.posterior["latent_ed"].shape[-1]
-    sd_latent = {d:None for d in diseases}
+    # Previous static residual forecast expected no latent_ed in the fitted trace:
+    # T_train = trace_ed.posterior[f"latent_{diseases[0]}"].shape[-2]
     for disease in diseases:
         print(f"Adding model for {disease}")
         y_cases, log_y, pivot= getting_cases_and_ww_logged(df_test, disease, cols)
@@ -165,17 +225,32 @@ def build_forecast_model(diseases,
         arrival_rate_free[disease] = pm.Flat(f"arrival_rate_free_{disease}", shape=(num_regions-1,))
         arrival_rate[disease] = pt.concatenate([pt.constant([1.0]), arrival_rate_free[disease]])
         alpha[disease] = pm.Flat(f"alpha_{disease}")
-        offset_ed[disease] = pm.Flat(f"offset_ed_{disease}")
-        nu[disease] =  pm.Flat(f"nu_{disease}", shape = (num_regions,))
-        sd_latent[disease] = pm.Flat(f"sd_latent_{disease}")  # small global scale
+        case_center_name = f"case_signal_center_{disease}"
+        if case_center_name in trace_ed.posterior:
+            case_signal_center[disease] = pm.Flat(case_center_name, shape=(num_regions,))
+        offset_name = f"offset_ed_{disease}"
+        if offset_name in trace_ed.posterior:
+            offset_ed[disease] = pm.Flat(offset_name)
+        else:
+            offset_ed[disease] = 0
+
+        nu[disease] = pm.Flat(f"nu_{disease}", shape=(num_regions,))
+        ed_center_name = f"ed_signal_center_{disease}"
+        if ed_center_name in trace_ed.posterior:
+            ed_signal_center[disease] = pm.Flat(ed_center_name, shape=(num_regions,))
         latent_dict= adding_disease_forecast(population, num_regions, T_train, T_forecast, latent_disease_dict,
                                             alpha[disease], offset_ed[disease], arrival_rate[disease],
                                             lag_reporting[disease], shape_reporting[disease], scale_reporting[disease],
-                                            lag_ww[disease], shape_ww[disease], scale_ww[disease], latent_dict, disease, tests_per_capita)
+                                            lag_ww[disease], shape_ww[disease], scale_ww[disease], latent_dict, disease,
+                                            tests_per_capita=tests_per_capita,
+                                            case_signal_center=case_signal_center[disease])
         var_names += [f"forecast_observed_cases_{disease}",
                       f"forecast_observed_wastewater_{disease}",
                       f"latent_forecast_{disease}",]
     var_names += ["forecast_ed_visits", "latent_forecast_ed"]
+    # Previous static residual forecast returned only forecast_ed_visits:
+    # var_names += ["forecast_ed_visits"]
     ed_forecast(T_forecast, T_train, population, num_regions, nu, 
-                latent_dict,  latent_disease_dict, lag_ed, shape_ed, scale_ed, offset_ed, diseases)
+                latent_dict,  latent_disease_dict, lag_ed, shape_ed, scale_ed, offset_ed, diseases,
+                ed_signal_center=ed_signal_center)
     return var_names

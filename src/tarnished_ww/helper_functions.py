@@ -1,5 +1,105 @@
 import arviz as az
 from sklearn.metrics import mean_absolute_error
+import pandas as pd
+import numpy as np
+import arviz as az
+
+
+def summarize_forecast_ed_window(
+    fit_results,
+    prediction_results,
+    ci: float = 0.95,
+):
+    """
+    Convert forecast_ed_visits posterior predictive samples into tidy rows.
+
+    Returns one row per forecast date x WWTP.
+    """
+    cols = fit_results["cols"]
+    df_test = fit_results["test_df"]
+    wwtps = fit_results["wwtps"]
+
+    pivot_obs = (
+        df_test
+        .pivot(index=cols.date, columns=cols.region_internal, values=cols.ed_visits)
+        .sort_index()
+        .fillna(0)
+    )
+
+    samples = prediction_results["trace"].predictions["forecast_ed_visits"].values
+    # shape: chains, draws, horizon, regions
+
+    mean_pred = samples.mean(axis=(0, 1))
+    median_pred = np.median(samples, axis=(0, 1))
+    hdi = az.hdi(samples, hdi_prob=ci)
+
+    rows = []
+
+    for t, date in enumerate(pivot_obs.index):
+        for r, region in enumerate(pivot_obs.columns):
+            rows.append(
+                {
+                    "window_id": fit_results.get("window_id"),
+                    "forecast_origin": fit_results.get("forecast_origin"),
+                    "forecast_date": date,
+                    "horizon": t + 1,
+                    "wwtp": region,
+                    "observed": pivot_obs.loc[date, region],
+                    "pred_mean": mean_pred[t, r],
+                    "pred_median": median_pred[t, r],
+                    "pred_lower": hdi[t, r, 0],
+                    "pred_upper": hdi[t, r, 1],
+                    "covered": (
+                        pivot_obs.loc[date, region] >= hdi[t, r, 0]
+                        and pivot_obs.loc[date, region] <= hdi[t, r, 1]
+                    ),
+                }
+            )
+
+    return pd.DataFrame(rows)
+
+
+def summarize_rolling_forecast_metrics(rolling_predictions_df):
+    """
+    Simple rolling-window metrics by region and horizon.
+    """
+    df = rolling_predictions_df.copy()
+    point_pred_col = "pred_median" if "pred_median" in df.columns else "pred_mean"
+    df["abs_error"] = (df["observed"] - df[point_pred_col]).abs()
+
+    metrics_by_region = (
+        df.groupby("wwtp")
+        .agg(
+            mae=("abs_error", "mean"),
+            coverage=("covered", "mean"),
+            n=("observed", "size"),
+        )
+        .reset_index()
+    )
+
+    metrics_by_horizon = (
+        df.groupby("horizon")
+        .agg(
+            mae=("abs_error", "mean"),
+            coverage=("covered", "mean"),
+            n=("observed", "size"),
+        )
+        .reset_index()
+    )
+
+    overall = pd.DataFrame(
+        {
+            "mae": [df["abs_error"].mean()],
+            "coverage": [df["covered"].mean()],
+            "n": [len(df)],
+        }
+    )
+
+    return {
+        "overall": overall,
+        "by_region": metrics_by_region,
+        "by_horizon": metrics_by_horizon,
+    }
 
 def filtering_best_models(df,errors_df,wwtps):
     df_all =[df[df['regions']==wwtp].explode(['date','predictions','observed','features','wastewater','offset']) for wwtp in wwtps]

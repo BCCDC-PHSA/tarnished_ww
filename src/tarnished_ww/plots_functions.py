@@ -5,6 +5,28 @@ import pandas as pd
 import os
 from .schemas import ColumnSpec
 
+def _summarize_posterior_plot_values(values, interval=None, central="mean", hdi_prob=0.95):
+       """
+       Accept either precomputed (time, region) summaries or raw posterior samples
+       with shape (chain, draw, time, region), and return central + interval arrays.
+       """
+       values_array = np.asarray(values)
+       if values_array.ndim <= 2:
+              return values_array, interval
+
+       if central == "median":
+              central_values = np.median(values_array, axis=(0, 1))
+       elif central == "mean":
+              central_values = np.mean(values_array, axis=(0, 1))
+       else:
+              raise ValueError("central must be either 'mean' or 'median'")
+
+       if interval is None:
+              import arviz as az
+              interval = az.hdi(values_array, hdi_prob=hdi_prob)
+
+       return central_values, interval
+
 def resampling_weekly(all_train_df,all_test_df, cols: ColumnSpec):
        all_train_w = []
        all_test_w = []
@@ -91,7 +113,17 @@ def plot_train_test_predictions(all_train_df, all_test_df, rows, cols, savepath,
 def plot_posterior_data(wwtps,dates, y_cases, pred_cases, pred_cases_interval,
                         y_ww, pred_ww, pred_ww_interval, latent_mean, latent_hdi, 
                         suffix, forecasting=False, forecast_start = None,
-                        region_ids=None, latent_plot=False):
+                        region_ids=None, latent_plot=False, central="mean", hdi_prob=0.95):
+        pred_cases, pred_cases_interval = _summarize_posterior_plot_values(
+            pred_cases, pred_cases_interval, central=central, hdi_prob=hdi_prob
+        )
+        pred_ww, pred_ww_interval = _summarize_posterior_plot_values(
+            pred_ww, pred_ww_interval, central=central, hdi_prob=hdi_prob
+        )
+        latent_mean, latent_hdi = _summarize_posterior_plot_values(
+            latent_mean, latent_hdi, central=central, hdi_prob=hdi_prob
+        )
+        central_label = "Predicted Median" if central == "median" else "Predicted Mean"
         
         if region_ids is None:
             region_ids = list(range(len(wwtps)))  # plot all by default
@@ -105,7 +137,7 @@ def plot_posterior_data(wwtps,dates, y_cases, pred_cases, pred_cases_interval,
             ax1 = axs[1]
 
             ax1.plot(dates[1:], y_cases[1:, r], label='Observed Cases', color='black')
-            ax1.plot(dates[1:], pred_cases[1:, r], label='Predicted Mean', color='blue')
+            ax1.plot(dates[1:], pred_cases[1:, r], label=central_label, color='blue')
             ax1.fill_between(
                     dates[1:],
                     pred_cases_interval[1:, r, 0],
@@ -125,12 +157,12 @@ def plot_posterior_data(wwtps,dates, y_cases, pred_cases, pred_cases_interval,
             # --- WASTEWATER ---
             ax3 = axs[0]
 
-            ax3.plot(dates[1:], y_ww[1:, r], label='Observed Wastewater', color='black')
-            ax3.plot(dates[1:], pred_ww[1:, r], label='Predicted Mean', color='green')
+            ax3.plot(dates, y_ww[:, r], label='Observed Wastewater', color='black')
+            ax3.plot(dates, pred_ww[:, r], label=central_label, color='green')
             ax3.fill_between(
                     dates[1:],
-                    pred_ww_interval[1:, r, 0],
-                    pred_ww_interval[1:, r, 1],
+                    pred_ww_interval[:, r, 0],
+                    pred_ww_interval[:, r, 1],
                     color='green',
                     alpha=0.3,
                     label='95% Credible Interval'
@@ -147,10 +179,10 @@ def plot_posterior_data(wwtps,dates, y_cases, pred_cases, pred_cases_interval,
                 # --- Latent---
                 ax5 = axs[2]
 
-                ax5.plot(dates[1:], latent_mean[1:, r], label='Latent Process (Log Scale)', color='black')
-                ax5.fill_between(dates[1:],
-                                latent_hdi[1:, r, 0],
-                                latent_hdi[1:, r, 1],
+                ax5.plot(dates[:], latent_mean[:, r], label='Latent Process (Log Scale)', color='black')
+                ax5.fill_between(dates[:],
+                                latent_hdi[:, r, 0],
+                                latent_hdi[:, r, 1],
                                 color='grey',
                                 alpha=0.3,
                                 label='95% Credible Interval'
@@ -172,7 +204,8 @@ def plot_posterior_data(wwtps,dates, y_cases, pred_cases, pred_cases_interval,
 
 def plot_posterior_diseases_region(diseases, dates, y_cases, pred_cases, pred_cases_interval,
                                     y_ww, pred_ww, pred_ww_interval, wwtps, region_id,
-                                    forecasting=False, forecast_start=None, size =[14,4]):
+                                    forecasting=False, forecast_start=None, size =[14,4],
+                                    central="mean", hdi_prob=0.95):
     """
     Plot posterior predictions for cases and wastewater for a single region, across multiple diseases.
 
@@ -203,15 +236,26 @@ def plot_posterior_diseases_region(diseases, dates, y_cases, pred_cases, pred_ca
     forecast_start : datetime or str
         Value in `dates` to use as forecast start marker.
     """
-
+    disease_map = {
+         "covid": "COVID-19",
+         "flua": "Influenza A",
+         "rsv": "RSV"
+         }
+    central_label = "Predicted Median" if central == "median" else "Predicted Mean"
     n_diseases = len(diseases)
     fig, axs = plt.subplots(nrows=n_diseases, ncols=2, figsize=(size[0], size[1] * n_diseases),
                         sharex=True, gridspec_kw={"hspace": 0.23, "wspace": 0.25})
     for i, disease in enumerate(diseases):
         # --- CASES ---
+        pred_cases[disease], pred_cases_interval[disease] = _summarize_posterior_plot_values(
+            pred_cases[disease], pred_cases_interval[disease], central=central, hdi_prob=hdi_prob
+        )
+        pred_ww[disease], pred_ww_interval[disease] = _summarize_posterior_plot_values(
+            pred_ww[disease], pred_ww_interval[disease], central=central, hdi_prob=hdi_prob
+        )
         ax_cases = axs[i, 0]
         ax_cases.plot(dates[disease][1:], y_cases[disease][1:, region_id], label="Observed", color="black")
-        ax_cases.plot(dates[disease][1:], pred_cases[disease][1:, region_id], label="Predicted Mean", color="aquamarine")
+        ax_cases.plot(dates[disease][1:], pred_cases[disease][1:, region_id], label=central_label, color="aquamarine")
         ax_cases.fill_between(
             dates[disease][1:], 
             pred_cases_interval[disease][1:, region_id, 0], 
@@ -219,7 +263,7 @@ def plot_posterior_diseases_region(diseases, dates, y_cases, pred_cases, pred_ca
             color="aquamarine", alpha=0.8, label="95% CI"
         )
         ax_cases.set_ylabel("Cases", fontsize=14)
-        ax_cases.set_title(f"{disease.upper()}", fontsize=12)
+        ax_cases.set_title(disease_map.get(disease, disease.upper()), fontsize=12)
         ax_cases.grid(True, linestyle="--", alpha=0.5)
         if i ==0:
             ax_cases.legend(
@@ -234,7 +278,7 @@ def plot_posterior_diseases_region(diseases, dates, y_cases, pred_cases, pred_ca
         # --- WASTEWATER ---
         ax_ww = axs[i, 1]
         ax_ww.plot(dates[disease][1:], y_ww[disease][1:, region_id], label="Observed", color="black")
-        ax_ww.plot(dates[disease][1:], pred_ww[disease][1:, region_id], label="Predicted Mean", color="salmon")
+        ax_ww.plot(dates[disease][1:], pred_ww[disease][1:, region_id], label=central_label, color="salmon")
         
         ax_ww.fill_between(
             dates[disease][1:], 
@@ -243,7 +287,7 @@ def plot_posterior_diseases_region(diseases, dates, y_cases, pred_cases, pred_ca
             color="salmon", alpha=0.6, label="95% CI"
         )
         ax_ww.set_ylabel("Wastewater", fontsize=12)
-        ax_ww.set_title(f"{disease.upper()}", fontsize=12)
+        ax_ww.set_title(disease_map.get(disease, disease.upper()), fontsize=12)
         ax_ww.grid(True, linestyle="--", alpha=0.5)
         if i ==0:
             ax_ww.legend(
@@ -270,6 +314,163 @@ def plot_posterior_diseases_region(diseases, dates, y_cases, pred_cases, pred_ca
         warnings.simplefilter("ignore", category=UserWarning)
     plt.tight_layout(rect=[0, 0.03, 1, 0.97]);
     plt.show()
+
+
+def plot_latent_process_by_region(
+    diseases,
+    dates,
+    latent_mean,
+    latent_hdi,
+    residual_mean,
+    residual_hdi,
+    wwtps,
+    region_ids=None,
+    forecast_start=None,
+    start_idx=0,
+    figsize=None,
+    hdi_alpha=0.55,
+    savepath=None,
+    show=True,
+):
+    """
+    Plot latent-process trajectories plus ED residual across one or more WWTPs.
+
+    Parameters
+    ----------
+    diseases : list of str
+        Disease names to plot, for example ["covid", "rsv", "flua"].
+    dates : array-like
+        Shared date vector of shape (T,).
+    latent_mean : dict
+        Dict mapping disease -> array of posterior central values with shape (T, R).
+    latent_hdi : dict
+        Dict mapping disease -> array of posterior intervals with shape (T, R, 2).
+    residual_mean : np.ndarray
+        Posterior central values for ED residual with shape (T, R).
+    residual_hdi : np.ndarray
+        Posterior intervals for ED residual with shape (T, R, 2).
+    wwtps : list
+        Region names in plotting order.
+    region_ids : list of int, optional
+        Region indices to plot. Defaults to all regions.
+    forecast_start : datetime-like, optional
+        If provided, draw a vertical dashed line at this date.
+    start_idx : int, default 0
+        First time index to display.
+    figsize : tuple, optional
+        Figure size passed to matplotlib.
+    hdi_alpha : float, default 0.55
+        Transparency for interval bands.
+    savepath : str or pathlib.Path, optional
+        If provided, save the figure to this path.
+    show : bool, default True
+        Whether to call plt.show().
+
+    Returns
+    -------
+    tuple
+        (fig, axes)
+    """
+    disease_map = {
+        "covid": "COVID-19",
+        "rsv": "RSV",
+        "flua": "Influenza A",
+        "residual": "ED Residual",
+    }
+
+    dates = np.asarray(dates)
+    if region_ids is None:
+        region_ids = list(range(len(wwtps)))
+
+    row_names = list(diseases) + ["residual"]
+    n_rows = len(row_names)
+    n_cols = len(region_ids)
+
+    if figsize is None:
+        figsize = (3.6 * n_cols + 1.2, 2.15 * n_rows + 0.8)
+
+    fig, axs = plt.subplots(
+        nrows=n_rows,
+        ncols=n_cols,
+        figsize=figsize,
+        sharex=True,
+        squeeze=False,
+    )
+
+    line_color = "black"
+    band_color = "#BFC4CC"
+    residual_line_color = "#1E40FF"
+    residual_band_color = "#8EF6FF"
+
+    for col_idx, region_id in enumerate(region_ids):
+        for row_idx, name in enumerate(row_names):
+            ax = axs[row_idx, col_idx]
+
+            if name == "residual":
+                mean_vals = residual_mean[:, region_id]
+                low_vals = residual_hdi[:, region_id, 0]
+                high_vals = residual_hdi[:, region_id, 1]
+                this_line = residual_line_color
+                this_band = residual_band_color
+                ylabel_color = residual_line_color
+            else:
+                mean_vals = latent_mean[name][:, region_id]
+                low_vals = latent_hdi[name][:, region_id, 0]
+                high_vals = latent_hdi[name][:, region_id, 1]
+                this_line = line_color
+                this_band = band_color
+                ylabel_color = "black"
+
+            ax.plot(
+                dates[start_idx:],
+                mean_vals[start_idx:],
+                color=this_line,
+                lw=1.5,
+            )
+            ax.fill_between(
+                dates[start_idx:],
+                low_vals[start_idx:],
+                high_vals[start_idx:],
+                color=this_band,
+                alpha=hdi_alpha,
+            )
+
+            if forecast_start is not None:
+                ax.axvline(
+                    forecast_start,
+                    color="red",
+                    linestyle="--",
+                    lw=1.3,
+                )
+
+            ax.grid(True, linestyle="--", alpha=0.35)
+
+            if row_idx == 0:
+                ax.set_title(f"WWTP {wwtps[region_id]}", fontsize=17)
+
+            if col_idx == 0:
+                ax.set_ylabel(
+                    disease_map.get(name, name),
+                    fontsize=17,
+                    color=ylabel_color,
+                )
+
+            if row_idx < n_rows - 1:
+                ax.tick_params(axis="x", labelbottom=False)
+            else:
+                ax.tick_params(axis="x", rotation=45)
+
+    fig.suptitle("Latent Process", fontsize=22, y=0.995)
+    fig.supxlabel("Date", fontsize=18, y=0.04)
+    fig.tight_layout(rect=[0, 0.05, 1, 0.98])
+
+    if savepath is not None:
+        fig.savefig(savepath, bbox_inches="tight")
+
+    if show:
+        plt.show()
+
+    return fig, axs
 
 
 def plot_train_test_predictions_bootstrapping(all_train_df,all_test_df,rows,cols,savepath, start = 0, ci: float = 0.95):

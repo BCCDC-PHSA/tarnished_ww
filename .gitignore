@@ -20,6 +20,11 @@ build/
 dist/
 
 # Jupyter Notebook
+notebooks/figures/*
+notebooks/tables/*
+notebooks/diagnostic_plots/*
+notebooks/posterior_plots/*
+notebooks/*nc
 notebooks/*.db
 .ipynb_checkpoints/
 notebooks/*.ipynb

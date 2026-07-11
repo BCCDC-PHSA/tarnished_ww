@@ -10,6 +10,8 @@ class ColumnSpec:
     tests: str = "total_tests"
     cases_tpl: str = "total_cases_{disease}"
     wwload_tpl: str = "load_trillion_{disease}"
+    ww_missing_tpl: str = "wastewater_missing_{disease}"
+    ww_left_censored_tpl: str = "is_left_censored_{disease}"
 
 @dataclass(frozen=True)
 class PopulationSpec:
