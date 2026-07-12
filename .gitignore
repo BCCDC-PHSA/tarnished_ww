@@ -38,4 +38,7 @@ env/
 # docs
 docs/quick_start_files/
 docs/*.html
-
+# local-only data processing script
+src/tarnished_ww/data_processing.py
+docs/data_processing_onboarding.md
+docs/project_handoff.md
